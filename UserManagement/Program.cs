@@ -63,29 +63,29 @@ builder.Services.AddControllers()
         options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore;
     });
 
-builder.Services.AddApiVersioning(options =>
-{
-    options.ReportApiVersions = true;
-    options.AssumeDefaultVersionWhenUnspecified = true;
-    options.DefaultApiVersion = new ApiVersion(1, 0);
-})
-    .AddApiExplorer(options =>
-    {
-        options.GroupNameFormat = "'v'VVV";
-        options.SubstituteApiVersionInUrl = true;
-    });
+//builder.Services.AddApiVersioning(options =>
+//{
+//    options.ReportApiVersions = true;
+//    options.AssumeDefaultVersionWhenUnspecified = true;
+//    options.DefaultApiVersion = new ApiVersion(1, 0);
+//})
+//    .AddApiExplorer(options =>
+//    {
+//        options.GroupNameFormat = "'v'VVV";
+//        options.SubstituteApiVersionInUrl = true;
+//    });
 
 builder.Services.AddSwaggerGen(options =>
 {
-    var provider = builder.Services.BuildServiceProvider().GetRequiredService<IApiVersionDescriptionProvider>();
-    foreach (var description in provider.ApiVersionDescriptions)
-    {
-        options.SwaggerDoc(description.GroupName, new OpenApiInfo
-        {
-            Title = $"Auth API {description.ApiVersion}",
-            Version = description.ApiVersion.ToString()
-        });
-    }
+    //var provider = builder.Services.BuildServiceProvider().GetRequiredService<IApiVersionDescriptionProvider>();
+    //foreach (var description in provider.ApiVersionDescriptions)
+    //{
+    //    options.SwaggerDoc(description.GroupName, new OpenApiInfo
+    //    {
+    //        Title = $"Auth API {description.ApiVersion}",
+    //        Version = description.ApiVersion.ToString()
+    //    });
+    //}
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
@@ -126,11 +126,11 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
-        var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
-        foreach (var description in provider.ApiVersionDescriptions)
-        {
-            options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName.ToUpperInvariant());
-        }
+        //var provider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+        //foreach (var description in provider.ApiVersionDescriptions)
+        //{
+        //    options.SwaggerEndpoint($"/swagger/{description.GroupName}/swagger.json", description.GroupName.ToUpperInvariant());
+        //}
     });
 }
 

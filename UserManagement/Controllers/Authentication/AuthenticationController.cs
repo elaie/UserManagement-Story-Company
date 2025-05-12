@@ -22,8 +22,8 @@ using System.Web;
 
 namespace GymSync.Server.Controllers.Authentication
 {
-    [Route("api/v{version:apiVersion}/authentication")]
-    [ApiVersion("1.0")]
+    [Route("api/auth")]
+    //[ApiVersion("1.0")]
     [ApiController]
     public class AuthenticationController : ControllerBase
     {
@@ -56,7 +56,7 @@ namespace GymSync.Server.Controllers.Authentication
             if (userExist != null)
             {
                 return StatusCode(StatusCodes.Status403Forbidden,
-                        new Response { Status = "Error", Message = "User already exists!" });
+                    new Response { Status = "Error", Message = "User already exists!" });
             }
 
             IdentityUser user = new()
@@ -65,57 +65,30 @@ namespace GymSync.Server.Controllers.Authentication
                 SecurityStamp = Guid.NewGuid().ToString(),
                 UserName = registerUser.Username
             };
-            if (await _roleManager.RoleExistsAsync(role))
-            {
-                var result = await _userManager.CreateAsync(user, registerUser.Password);
-                if (!result.Succeeded)
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                            new Response { Status = "Error", Message = "User Failed to Create" });
-                }
 
-                await _userManager.AddToRoleAsync(user, role);
-
-
-               
-
-
-                return StatusCode(StatusCodes.Status200OK,
-                  new Response { Status = "Success", Message = $"User created SuccessFully" });
-            }
-            else
+            if (!await _roleManager.RoleExistsAsync(role))
             {
                 return StatusCode(StatusCodes.Status500InternalServerError,
-                           new Response { Status = "Error", Message = "This Role Does not Exist" });
+                    new Response { Status = "Error", Message = "This role does not exist" });
             }
+
+            var result = await _userManager.CreateAsync(user, registerUser.Password);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                return StatusCode(StatusCodes.Status400BadRequest,
+                    new Response { Status = "Error", Message = $"User creation failed: {errors}" });
+            }
+
+            await _userManager.AddToRoleAsync(user, role);
+
+            return StatusCode(StatusCodes.Status200OK,
+                new Response { Status = "Success", Message = "User created successfully" });
         }
 
-      
 
-      //  [HttpGet("confirm-email")]
-      //  public async Task<IActionResult> ConfirmEmail(string token, string email)
-      //  {
-      //      var user = await _userManager.FindByEmailAsync(email);
-      //      if (user != null)
-      //      {
-      //          var result = await _userManager.ConfirmEmailAsync(user, token);
-      //          if (result.Succeeded)
-      //          {
-      //              var isInRole = await _userManager.IsInRoleAsync(user, "Owner");
-      //              if (isInRole)
-      //              {
-      //                  var gymOwner = new CreateGymOwnerDTO(user.Id);
-      //                  var newGymOwner = _mapper.Map<GymOwnerModel>(gymOwner);
-      //                  _context.GymOwnerContext.Add(newGymOwner);
-      //                  await _context.SaveChangesAsync();
-      //              }
-      //              return StatusCode(StatusCodes.Status200OK,
-      //new Response { Status = "Success", Message = "Email Verified Successfully" });
-      //          }
-      //      }
-      //      return StatusCode(StatusCodes.Status500InternalServerError,
-      //                 new Response { Status = "Error", Message = "This User Does not exist!" });
-      //  }
+
 
         [HttpPost]
         [Route("login")]
@@ -146,7 +119,7 @@ namespace GymSync.Server.Controllers.Authentication
                 userEmail = user.Email,
             });
         }
-
+        [Authorize]
         [HttpGet]
         [Route("getallusers")]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
@@ -163,6 +136,27 @@ namespace GymSync.Server.Controllers.Authentication
                 .ToListAsync();
 
             return Ok(users);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<UserDto>> GetUserById(string id)
+        {
+            var user = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.Id == id)
+                .Select(u => new UserDto
+                {
+                    Id = u.Id,
+                    UserName = u.UserName,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber
+                })
+                .FirstOrDefaultAsync();
+
+            if (user == null)
+                return NotFound();
+
+            return Ok(user);
         }
 
         [HttpPut("{id}")]
@@ -192,6 +186,19 @@ namespace GymSync.Server.Controllers.Authentication
             return NoContent();
         }
 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(string id)
+        {
+            var user = await _context.Users.FindAsync(id);
+
+            if (user == null)
+                return NotFound();
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
 
         [HttpPost]
         [Route("refresh-token")]
@@ -284,7 +291,7 @@ namespace GymSync.Server.Controllers.Authentication
                 issuer: _configuration["JWT:ValidIssuer"],
                 audience: _configuration["JWT:ValidAudience"],
                 //  Issued: DateTime.Now,
-                expires: DateTime.Now.AddDays(7),
+                expires: DateTime.Now.AddMinutes(15),
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             );
@@ -299,7 +306,7 @@ namespace GymSync.Server.Controllers.Authentication
                 Token = refreshToken,
                 UserId = userId,
                 Jti = jti,
-                Expires = DateTime.UtcNow.AddDays(30),
+                Expires = DateTime.UtcNow.AddDays(7),
                 Created = DateTime.UtcNow
             };
             _context.RefreshTokens.Add(refreshTokenEntity);
