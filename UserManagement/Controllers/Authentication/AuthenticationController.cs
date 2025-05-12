@@ -12,6 +12,7 @@ using SharedLibrary.Models.Login;
 using SharedLibrary.Models.RefreshToken;
 using SharedLibrary.Models.Sign_Up;
 using SharedLibrary.Models.SignUp;
+using SharedLibrary.Models.User;
 using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -144,6 +145,51 @@ namespace GymSync.Server.Controllers.Authentication
                 userName = user.UserName,
                 userEmail = user.Email,
             });
+        }
+
+        [HttpGet]
+        [Route("getallusers")]
+        public async Task<ActionResult<IEnumerable<UserDto>>> GetAllUsers()
+        {
+            var users = await _context.Users
+                .AsNoTracking()
+                .Select(u => new UserDto
+                {
+                    Id = u.Id,
+                    UserName = u.UserName,
+                    Email = u.Email,
+                    PhoneNumber = u.PhoneNumber
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser(string id, [FromBody] UpdateUserDto updatedUser)
+        {
+
+
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+                return NotFound();
+
+            // Only update if data is provided
+            if (!string.IsNullOrWhiteSpace(updatedUser.UserName))
+                user.UserName = updatedUser.UserName;
+
+            if (!string.IsNullOrWhiteSpace(updatedUser.Email))
+                user.Email = updatedUser.Email; 
+            
+            if (!string.IsNullOrWhiteSpace(updatedUser.PhoneNumber))
+                user.PhoneNumber = updatedUser.PhoneNumber;
+
+            var isModified = _context.Entry(user).Properties.Any(p => p.IsModified);
+            if (!isModified)
+                return BadRequest("No fields to update");
+
+            await _context.SaveChangesAsync();
+            return NoContent();
         }
 
 
